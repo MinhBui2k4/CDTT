@@ -1,0 +1,13 @@
+package com.example.buivanminh.dto;
+
+import java.util.List;
+
+import lombok.Data;
+
+@Data
+public class CartDTO {
+    private Long id;
+    private Long userId;
+    private List<CartItemDTO> items;
+    private Double totalCartPrice; // Tổng giá giỏ hàng
+}
