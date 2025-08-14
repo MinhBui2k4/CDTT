@@ -1,0 +1,36 @@
+package com.example.buivanminh.service;
+
+import com.example.buivanminh.dto.ProductDTO;
+import com.example.buivanminh.dto.response.BaseResponse;
+
+import java.io.FileNotFoundException;
+import java.io.InputStream;
+
+import org.springframework.data.domain.Pageable;
+
+public interface ProductService {
+    public BaseResponse<ProductDTO> getAllProducts(Pageable pageable, Long categoryId, Long brandId, String search,
+            Double priceStart, Double priceEnd);
+
+    ProductDTO getProductById(Long id);
+
+    ProductDTO createProduct(ProductDTO productDTO);
+
+    ProductDTO updateProduct(Long id, ProductDTO productDTO);
+
+    void deleteProduct(Long id);
+
+    BaseResponse<ProductDTO> getProductIsNews(Pageable pageable);
+
+    BaseResponse<ProductDTO> getProductIsSales(Pageable pageable);
+
+    BaseResponse<ProductDTO> getAvailableProducts(Pageable pageable);
+
+    BaseResponse<ProductDTO> findByCategoryCategoryId(Long categoryId, Pageable pageable);
+
+    BaseResponse<ProductDTO> getProductBySearch(String search, Pageable pageable);
+
+    public InputStream getProductImage(String fileName) throws FileNotFoundException;
+
+    public InputStream getProductImages(String fileNames) throws FileNotFoundException;
+}

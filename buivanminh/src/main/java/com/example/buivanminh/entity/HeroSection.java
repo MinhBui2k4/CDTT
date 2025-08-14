@@ -5,11 +5,11 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "banners")
+@Table(name = "hero_section")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Banner {
+public class HeroSection {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
