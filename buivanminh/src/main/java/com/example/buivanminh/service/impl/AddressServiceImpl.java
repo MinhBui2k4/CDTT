@@ -1,0 +1,173 @@
+package com.example.buivanminh.service.impl;
+
+import com.example.buivanminh.dto.AddressDTO;
+import com.example.buivanminh.dto.response.BaseResponse;
+import com.example.buivanminh.entity.Address;
+import com.example.buivanminh.entity.Role;
+import com.example.buivanminh.entity.User;
+import com.example.buivanminh.exception.BadRequestException;
+import com.example.buivanminh.exception.ResourceNotFoundException;
+import com.example.buivanminh.repository.AddressRepository;
+import com.example.buivanminh.repository.OrderRepository;
+import com.example.buivanminh.repository.UserRepository;
+import com.example.buivanminh.service.AddressService;
+
+import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Sort;
+
+import java.util.stream.Collectors;
+
+@Service
+@Transactional
+public class AddressServiceImpl implements AddressService {
+
+    @Autowired
+    private AddressRepository addressRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Autowired
+    private ModelMapper modelMapper;
+
+    private User getCurrentUser() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Người dùng không tìm thấy"));
+    }
+
+    @Override
+    public AddressDTO createAddress(AddressDTO addressDTO) {
+        User user = getCurrentUser();
+
+        Address address = modelMapper.map(addressDTO, Address.class);
+        address.setUser(user);
+
+        // Nếu là địa chỉ mặc định, xóa isDefault của các địa chỉ khác
+        if (address.isDefault()) {
+            addressRepository.findByUserIdAndIsDefaultTrue(user.getId())
+                    .ifPresent(existingDefault -> {
+                        existingDefault.setDefault(false);
+                        addressRepository.save(existingDefault);
+                    });
+        }
+
+        address = addressRepository.save(address);
+        return modelMapper.map(address, AddressDTO.class);
+    }
+
+    @Override
+    public BaseResponse<AddressDTO> getUserAddresses(int pageNumber, int pageSize, String sortBy, String sortOrder) {
+        User user = getCurrentUser();
+
+        Sort sort = sortOrder.equalsIgnoreCase("desc")
+                ? Sort.by(sortBy).descending()
+                : Sort.by(sortBy).ascending();
+
+        Pageable pageable = PageRequest.of(pageNumber, pageSize, sort);
+
+        Page<Address> addresses = addressRepository.findByUserId(user.getId(), pageable);
+
+        BaseResponse<AddressDTO> response = new BaseResponse<>();
+        response.setContent(addresses.getContent().stream()
+                .map(address -> modelMapper.map(address, AddressDTO.class))
+                .collect(Collectors.toList()));
+        response.setPageNumber(addresses.getNumber());
+        response.setPageSize(addresses.getSize());
+        response.setTotalElements(addresses.getTotalElements());
+        response.setTotalPages(addresses.getTotalPages());
+        response.setLastPage(addresses.isLast());
+
+        return response;
+    }
+
+    @Override
+    public AddressDTO getAddressById(Long id) {
+        User user = getCurrentUser();
+        Address address;
+
+        // Kiểm tra vai trò của user hiện tại
+        boolean isAdmin = user.getRoles().stream()
+                .anyMatch(role -> role.getName().equals(Role.RoleName.ADMIN)); // Sửa ROLE_ADMIN thành ADMIN
+
+        if (isAdmin) {
+            // Nếu là admin, cho phép lấy địa chỉ mà không cần kiểm tra userId
+            address = addressRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Địa chỉ không tìm thấy với id: " + id));
+        } else {
+            // Nếu không phải admin, chỉ lấy địa chỉ của user hiện tại
+            address = addressRepository.findByIdAndUserId(id, user.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Địa chỉ không tìm thấy hoặc không thuộc về bạn"));
+        }
+
+        return modelMapper.map(address, AddressDTO.class);
+    }
+
+    @Override
+    public AddressDTO updateAddress(Long id, AddressDTO addressDTO) {
+        User user = getCurrentUser();
+        Address address = addressRepository.findByIdAndUserId(id, user.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Địa chỉ không tìm thấy hoặc không thuộc về bạn"));
+
+        modelMapper.map(addressDTO, address);
+
+        // Nếu cập nhật thành địa chỉ mặc định, xóa isDefault của các địa chỉ khác
+        if (address.isDefault()) {
+            addressRepository.findByUserIdAndIsDefaultTrue(user.getId())
+                    .ifPresent(existingDefault -> {
+                        if (!existingDefault.getId().equals(id)) {
+                            existingDefault.setDefault(false);
+                            addressRepository.save(existingDefault);
+                        }
+                    });
+        }
+
+        address = addressRepository.save(address);
+        return modelMapper.map(address, AddressDTO.class);
+    }
+
+    @Override
+    public void deleteAddress(Long id) {
+        User user = getCurrentUser();
+        Address address = addressRepository.findByIdAndUserId(id, user.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Địa chỉ không tìm thấy hoặc không thuộc về bạn"));
+
+        // Kiểm tra xem địa chỉ có đang được sử dụng trong đơn hàng không
+        long orderCount = orderRepository.countByShippingAddressId(id);
+        if (orderCount > 0) {
+            throw new BadRequestException("Không thể xóa địa chỉ đang được sử dụng trong đơn hàng");
+        }
+
+        addressRepository.delete(address);
+    }
+
+    @Override
+    public AddressDTO setDefaultAddress(Long id) {
+        User user = getCurrentUser();
+        Address address = addressRepository.findByIdAndUserId(id, user.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Địa chỉ không tìm thấy hoặc không thuộc về bạn"));
+
+        // Xóa isDefault của các địa chỉ khác
+        addressRepository.findByUserIdAndIsDefaultTrue(user.getId())
+                .ifPresent(existingDefault -> {
+                    if (!existingDefault.getId().equals(id)) {
+                        existingDefault.setDefault(false);
+                        addressRepository.save(existingDefault);
+                    }
+                });
+
+        address.setDefault(true);
+        address = addressRepository.save(address);
+        return modelMapper.map(address, AddressDTO.class);
+    }
+}
