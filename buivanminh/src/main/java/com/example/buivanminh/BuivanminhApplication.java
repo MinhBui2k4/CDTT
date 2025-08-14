@@ -3,9 +3,9 @@ package com.example.buivanminh;
 import java.util.ArrayList;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import org.modelmapper.TypeMap;
 
 import org.modelmapper.ModelMapper;
-import org.modelmapper.TypeMap;
 import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -22,11 +22,14 @@ import com.example.buivanminh.entity.Role;
 import com.example.buivanminh.entity.Wishlist;
 import com.example.buivanminh.entity.WishlistItem;
 
+@SpringBootApplication
 public class BuivanminhApplication {
+
 	private static final Logger logger = Logger.getLogger(BuivanminhApplication.class.getName());
 
 	public static void main(String[] args) {
 		SpringApplication.run(BuivanminhApplication.class, args);
+		System.out.println("helo");
 	}
 
 	@Bean
