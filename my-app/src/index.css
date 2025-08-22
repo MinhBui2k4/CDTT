@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.ck-editor__editable_inline {
+  min-height: 200px;
+  color: #000;            /* đảm bảo chữ hiển thị */
+  background: #fff;       /* nền trắng */
+  user-select: text;      /* cho phép chọn */
+  pointer-events: auto;   /* cho phép nhập */
+}
